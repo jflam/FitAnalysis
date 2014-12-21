@@ -35,6 +35,7 @@ namespace FitAnalysis
     class Program
     {
         const string FIT_FILE_PATH = @"C:\Users\John\OneDrive\Garmin\2014-10-10-14-16-04.fit";
+        const double FTP = 225;
 
         class LapSummary
         {
@@ -51,7 +52,7 @@ namespace FitAnalysis
                     var parser = new FastParser(stream);
                     var laps = new List<LapSummary>();
 
-                    var normalizedPowerCalculator = new NormalizedPowerCalculator();
+                    var normalizedPowerCalculator = new PowerStatisticsCalculator(FTP);
                     var powerCurveCalculator = new PowerCurveCalculator(new int[] {1, 5, 10, 30, 60, 120, 240, 300, 600, 900});
 
                     var timer = new Stopwatch();
@@ -78,15 +79,17 @@ namespace FitAnalysis
 
                     timer.Stop();
 
-                    Console.WriteLine("NP = {0:0}", normalizedPowerCalculator.NormalizedPower);
-                    Console.WriteLine("Peak Power Intervals:\n");
+                    Console.WriteLine("Peak Average Power Curve:\n");
                     for (int i = 0; i < powerCurveCalculator.Durations.Length; i++)
                     {
-                        Console.WriteLine("Duration: {0}, Max Power: {1:0}", powerCurveCalculator.Durations[i], powerCurveCalculator.PeakAveragePowerForDuration[i]);
+                        Console.WriteLine("Duration: {0}s, Peak Average Power: {1:0}W", powerCurveCalculator.Durations[i], powerCurveCalculator.PeakAveragePowerForDuration[i]);
                     }
 
-                    Console.WriteLine("Average power: {0:0}", powerCurveCalculator.AveragePower);
-                    Console.WriteLine("Number of ms: {0}", timer.ElapsedMilliseconds);
+                    Console.WriteLine("Average power: {0:0}W", powerCurveCalculator.AveragePower);
+                    Console.WriteLine("Normalized power: {0:0}W", normalizedPowerCalculator.NormalizedPower);
+                    Console.WriteLine("Intensity factor: {0:0.000}", normalizedPowerCalculator.IntensityFactor);
+                    Console.WriteLine("Training Stress Score: {0:0}", normalizedPowerCalculator.TrainingStressScore);
+                    Console.WriteLine("Processing duration: {0}ms", timer.ElapsedMilliseconds);
                 }
             }
         }

@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace FitAnalysis
 {
-    class NormalizedPowerCalculator
+    class PowerStatisticsCalculator
     {
         const int DURATION = 30;
 
@@ -11,10 +11,12 @@ namespace FitAnalysis
         private double _power30SecondTotal;
         private double _power30SecondAverageToFourthPowerTotal;
         private int _powerReadingCount;
+        private double _ftp;
 
-        public NormalizedPowerCalculator()
+        public PowerStatisticsCalculator(double ftp)
         {
             _buffer = new CircularBuffer(DURATION + 1);
+            _ftp = ftp;
         }
 
         public void Add(double power)
@@ -35,6 +37,16 @@ namespace FitAnalysis
         public double NormalizedPower
         {
             get { return Math.Pow(_power30SecondAverageToFourthPowerTotal / ((double)(_powerReadingCount - DURATION)), 0.25); }
+        }
+
+        public double IntensityFactor
+        {
+            get { return NormalizedPower / _ftp; }
+        }
+
+        public double TrainingStressScore
+        {
+            get { return (_powerReadingCount * NormalizedPower * IntensityFactor) / (_ftp * 3600) * 100; }
         }
     }
 
