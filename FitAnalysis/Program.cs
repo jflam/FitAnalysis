@@ -3,6 +3,7 @@ using CommandLine.Text;
 using FastFitParser.Core;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 
 namespace FitAnalysis
@@ -49,16 +50,16 @@ namespace FitAnalysis
                 {
                     var parser = new FastParser(stream);
                     var laps = new List<LapSummary>();
-                    var buffer = new CircularBuffer(31); // 31s circular buffer
 
-                    double power30SecondTotal = 0;
-                    double power30SecondAverageToFourthPowerTotal = 0;
-                    int powerReadingCount = 0;
+                    var normalizedPowerCalculator = new NormalizedPowerCalculator();
+                    var powerCurveCalculator = new PowerCurveCalculator(new int[] {1, 5, 10, 30, 60, 120, 240, 300, 600, 900});
+
+                    var timer = new Stopwatch();
+                    timer.Start();
 
                     foreach (var record in parser.GetDataRecords())
                     {
                         double power;
-                        double power30SecondAverage;
 
                         if (record.GlobalMessageNumber == GlobalMessageNumber.Lap)
                         {
@@ -69,22 +70,23 @@ namespace FitAnalysis
                         {
                             if (record.TryGetField(FieldNumber.Power, out power))
                             {
-                                power30SecondTotal -= buffer.ReadNegativeOffset(29); 
-                                power30SecondTotal += power;
-                                buffer.Add(power);
-
-                                if (powerReadingCount >= 30)
-                                {
-                                    power30SecondAverage = power30SecondTotal / 30.0;
-                                    power30SecondAverageToFourthPowerTotal += Math.Pow(power30SecondAverage, 4);
-                                }
-
-                                powerReadingCount++;
+                                powerCurveCalculator.Add(power);
+                                normalizedPowerCalculator.Add(power);
                             }
                         }
                     }
 
-                    Console.WriteLine("NP = {0}", Math.Pow(power30SecondAverageToFourthPowerTotal / ((double)(powerReadingCount - 30)), 0.25));
+                    timer.Stop();
+
+                    Console.WriteLine("NP = {0:0}", normalizedPowerCalculator.NormalizedPower);
+                    Console.WriteLine("Peak Power Intervals:\n");
+                    for (int i = 0; i < powerCurveCalculator.Durations.Length; i++)
+                    {
+                        Console.WriteLine("Duration: {0}, Max Power: {1:0}", powerCurveCalculator.Durations[i], powerCurveCalculator.PeakAveragePowerForDuration[i]);
+                    }
+
+                    Console.WriteLine("Average power: {0:0}", powerCurveCalculator.AveragePower);
+                    Console.WriteLine("Number of ms: {0}", timer.ElapsedMilliseconds);
                 }
             }
         }
