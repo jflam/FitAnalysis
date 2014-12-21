@@ -49,9 +49,17 @@ namespace FitAnalysis
                 {
                     var parser = new FastParser(stream);
                     var laps = new List<LapSummary>();
+                    var buffer = new CircularBuffer(31); // 31s circular buffer
+
+                    double power30SecondTotal = 0;
+                    double power30SecondAverageToFourthPowerTotal = 0;
+                    int powerReadingCount = 0;
 
                     foreach (var record in parser.GetDataRecords())
                     {
+                        double power;
+                        double power30SecondAverage;
+
                         if (record.GlobalMessageNumber == GlobalMessageNumber.Lap)
                         {
                             var x = 42;
@@ -59,14 +67,26 @@ namespace FitAnalysis
                         }
                         else if (record.GlobalMessageNumber == GlobalMessageNumber.Record)
                         {
-                            var y = 42;
+                            if (record.TryGetField(FieldNumber.Power, out power))
+                            {
+                                power30SecondTotal -= buffer.ReadNegativeOffset(29); 
+                                power30SecondTotal += power;
+                                buffer.Add(power);
 
+                                if (powerReadingCount >= 30)
+                                {
+                                    power30SecondAverage = power30SecondTotal / 30.0;
+                                    power30SecondAverageToFourthPowerTotal += Math.Pow(power30SecondAverage, 4);
+                                }
+
+                                powerReadingCount++;
+                            }
                         }
                     }
+
+                    Console.WriteLine("NP = {0}", Math.Pow(power30SecondAverageToFourthPowerTotal / ((double)(powerReadingCount - 30)), 0.25));
                 }
             }
-            Console.WriteLine("Press ENTER");
-            Console.ReadLine();
         }
     }
 }

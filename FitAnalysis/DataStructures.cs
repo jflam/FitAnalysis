@@ -9,7 +9,7 @@ namespace FitAnalysis
 
         public CircularBuffer(int maxElements)
         {
-            _position = -1;
+            _position = maxElements - 1;
             _maxElements = maxElements;
             _elements = new double[maxElements];
         }
