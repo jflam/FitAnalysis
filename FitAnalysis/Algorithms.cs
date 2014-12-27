@@ -50,6 +50,78 @@ namespace FitAnalysis
         }
     }
 
+    class NormalizedPowerCurveCalculator
+    {
+        const int DURATION = 30;
+
+        private int[] _durations;
+        private CircularBuffer _average30SecondPowerBuffer;
+        private CircularBuffer _normalizedPowerBuffer;
+        private double[] _powerToFourthPowerTotalForDuration;
+        private double[] _peakNormalizedPowerForDuration;
+        private int[] _peakNormalizedPowerForDurationOffset;
+        private double _power30SecondTotal;
+        private int _count;
+
+        public NormalizedPowerCurveCalculator(int[] durations)
+        {
+            _durations = durations;
+
+            _average30SecondPowerBuffer = new CircularBuffer(DURATION + 1);
+            _powerToFourthPowerTotalForDuration = new double[durations.Length];
+            _peakNormalizedPowerForDuration = new double[durations.Length];
+            _peakNormalizedPowerForDurationOffset = new int[durations.Length];
+
+            int longestInterval = durations.Max();
+            _normalizedPowerBuffer = new CircularBuffer(longestInterval + 1);
+        }
+
+        public void Add(double power)
+        {
+            _power30SecondTotal -= _average30SecondPowerBuffer.ReadNegativeOffset(DURATION - 1);
+            _power30SecondTotal += power;
+            _average30SecondPowerBuffer.Add(power);
+            _count++;
+
+            if (_count > DURATION)
+            {
+                double power30SecondAverageToFourthPower = Math.Pow(_power30SecondTotal / DURATION, 4);
+
+                for (int i = 0; i < _durations.Length; i++)
+                {
+                    _powerToFourthPowerTotalForDuration[i] -= _normalizedPowerBuffer.ReadNegativeOffset(_durations[i] - 1);
+                    _powerToFourthPowerTotalForDuration[i] += power30SecondAverageToFourthPower;
+
+                    if (_count >= _durations[i])
+                    {
+                        double normalizedPower = Math.Pow(_powerToFourthPowerTotalForDuration[i] / _durations[i], 0.25);
+                        if (normalizedPower > _peakNormalizedPowerForDuration[i])
+                        {
+                            _peakNormalizedPowerForDuration[i] = normalizedPower;
+                            _peakNormalizedPowerForDurationOffset[i] = _count - _durations[i];
+                        }
+                    }
+                }
+
+                _normalizedPowerBuffer.Add(power30SecondAverageToFourthPower);
+            }
+        }
+        public double[] PeakNormalizedPowerForDuration
+        {
+            get { return _peakNormalizedPowerForDuration; }
+        }
+
+        public int[] PeakNormalizedPowerForDurationOffset
+        {
+            get { return _peakNormalizedPowerForDurationOffset; }
+        }
+
+        public int[] Durations
+        {
+            get { return _durations; }
+        }
+    }
+
     class PowerCurveCalculator
     {
         private double[] _peakAveragePowerForDuration;
@@ -133,7 +205,6 @@ namespace FitAnalysis
         private double[] _minimumVarianceForDuration;
         private double[] _minimumVarianceOffsetForDuration;
         private double[] _meanHeartRateForDuration;
-
         private int _count;
 
         public HeartRateVarianceCalculator(int[] durations)
