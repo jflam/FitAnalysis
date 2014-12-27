@@ -114,4 +114,95 @@ namespace FitAnalysis
             get { return _durations; }
         }
     }
+
+    // Variability factor curve for heart rate. Compute the {interval} that has the lowest
+    // variability over a ride. One way of doing this is to compute the average for {interval}
+    // and minimize based on the standard deviation across that interval.
+    // There is the (admittedly limited) one-pass algorithm described here:
+    // However, given the limited variability of HR data, this should suffice
+    // http://www.strchr.com/standard_deviation_in_one_pass
+
+    public class HeartRateVarianceCalculator
+    {
+        private CircularBuffer _heartRateBuffer;
+        private CircularBuffer _squaredHeartRateBuffer;
+        private int[] _durations;
+        private double _totalHeartRate;
+        private double[] _totalHeartRateForDuration;
+        private double[] _totalSquaredHeartRateForDuration;
+        private double[] _minimumVarianceForDuration;
+        private double[] _minimumVarianceOffsetForDuration;
+        private double[] _meanHeartRateForDuration;
+
+        private int _count;
+
+        public HeartRateVarianceCalculator(int[] durations)
+        {
+            _durations = durations;
+            _totalHeartRateForDuration = new double[_durations.Length];
+            _totalSquaredHeartRateForDuration = new double[durations.Length];
+            _minimumVarianceForDuration = new double[durations.Length];
+            for (int i = 0; i < durations.Length; i++)
+            {
+                _minimumVarianceForDuration[i] = double.MaxValue;
+            }
+            
+            _minimumVarianceOffsetForDuration = new double[durations.Length];
+            _meanHeartRateForDuration = new double[durations.Length];
+
+            int longestInterval = durations.Max();
+            _heartRateBuffer = new CircularBuffer(longestInterval + 1);
+            _squaredHeartRateBuffer = new CircularBuffer(longestInterval + 1);
+
+            _totalHeartRate = 0;
+        }
+
+        public void Add(double heartRate)
+        {
+            double squaredHeartRate = heartRate * heartRate;
+            _totalHeartRate += heartRate;
+            _count++;
+
+            for (int i = 0; i < _durations.Length; i++)
+            {
+                _totalHeartRateForDuration[i] -= _heartRateBuffer.ReadNegativeOffset(_durations[i] - 1);
+                _totalHeartRateForDuration[i] += heartRate;
+
+                _totalSquaredHeartRateForDuration[i] -= _squaredHeartRateBuffer.ReadNegativeOffset(_durations[i] - 1);
+                _totalSquaredHeartRateForDuration[i] += squaredHeartRate;
+
+                if (_count >= _durations[i])
+                {
+                    double mean = _totalHeartRateForDuration[i] / _durations[i];
+                    double variance = Math.Abs(_totalSquaredHeartRateForDuration[i] / _durations[i] - mean * mean);
+                    if (variance < _minimumVarianceForDuration[i])
+                    {
+                        _minimumVarianceForDuration[i] = variance;
+                        _minimumVarianceOffsetForDuration[i] = _count - _durations[i];
+                        _meanHeartRateForDuration[i] = mean;
+                    }
+                }
+            }
+        }
+
+        public double[] MeanHeartRateForDuration
+        {
+            get { return _meanHeartRateForDuration; }
+        }
+
+        public double[] VarianceForDuration
+        {
+            get { return _minimumVarianceForDuration; }
+        }
+
+        public double AverageHeartRate
+        {
+            get { return _totalHeartRate / _count; }
+        }
+
+        public int[] Durations
+        {
+            get { return _durations; }
+        }
+    }
 }
