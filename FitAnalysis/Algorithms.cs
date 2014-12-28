@@ -423,5 +423,10 @@ namespace FitAnalysis
         {
             get { return _efficiencyFactorForDurationOffset; }
         }
+
+        public bool HasData
+        {
+            get { return _count > 0; }
+        }
     }
 }

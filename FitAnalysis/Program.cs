@@ -77,28 +77,36 @@ namespace FitAnalysis
                         }
                     }
 
-                    double minimumStandardDeviation = double.MaxValue;
-                    for (int i = 0; i < efficiencyFactorCalculator.Durations.Length; i++)
+                    if (!efficiencyFactorCalculator.HasData)
                     {
-                        if (efficiencyFactorCalculator.StandardDeviationForDuration[i] < minimumStandardDeviation)
-                        {
-                            minimumStandardDeviation = efficiencyFactorCalculator.StandardDeviationForDuration[i];
-                        }
-
+                        Console.WriteLine("{0} has no HR data", Path.GetFileNameWithoutExtension(file));
                     }
-
-                    if (minimumStandardDeviation < standardDeviationThreshold)
+                    else
                     {
+                        double minimumStandardDeviation = double.MaxValue;
                         for (int i = 0; i < efficiencyFactorCalculator.Durations.Length; i++)
                         {
-                            if (efficiencyFactorCalculator.StandardDeviationForDuration[i] < standardDeviationThreshold)
+                            if (efficiencyFactorCalculator.StandardDeviationForDuration[i] < minimumStandardDeviation)
                             {
-                                sb.AppendLine(String.Format("{0}, Duration {1}s, EF = {2:0.000}, NP = {3:0}, Avg HR = {4:0}",
-                                    Path.GetFileNameWithoutExtension(file),
-                                    efficiencyFactorCalculator.Durations[i],
-                                    efficiencyFactorCalculator.EfficiencyFactorForDuration[i],
-                                    efficiencyFactorCalculator.NormalizedPowerForDuration[i],
-                                    efficiencyFactorCalculator.MeanHeartRateForDuration[i]));
+                                minimumStandardDeviation = efficiencyFactorCalculator.StandardDeviationForDuration[i];
+                            }
+
+                        }
+
+                        if (minimumStandardDeviation < standardDeviationThreshold)
+                        {
+                            for (int i = 0; i < efficiencyFactorCalculator.Durations.Length; i++)
+                            {
+                                if (efficiencyFactorCalculator.StandardDeviationForDuration[i] < standardDeviationThreshold)
+                                {
+                                    sb.AppendLine(String.Format("{0}, Duration {1}s, EF = {2:0.000}, NP = {3:0}, Avg HR = {4:0.0} +/- {5:0.0}",
+                                        Path.GetFileNameWithoutExtension(file),
+                                        efficiencyFactorCalculator.Durations[i],
+                                        efficiencyFactorCalculator.EfficiencyFactorForDuration[i],
+                                        efficiencyFactorCalculator.NormalizedPowerForDuration[i],
+                                        efficiencyFactorCalculator.MeanHeartRateForDuration[i],
+                                        efficiencyFactorCalculator.StandardDeviationForDuration[i]));
+                                }
                             }
                         }
                     }
