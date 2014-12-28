@@ -203,7 +203,8 @@ namespace FitAnalysis
         private double[] _totalHeartRateForDuration;
         private double[] _totalSquaredHeartRateForDuration;
         private double[] _minimumVarianceForDuration;
-        private double[] _minimumVarianceOffsetForDuration;
+        private double[] _standardDeviationForDuration;
+        private double[] _minimumVarianceForDurationOffset;
         private double[] _meanHeartRateForDuration;
         private int _count;
 
@@ -213,12 +214,13 @@ namespace FitAnalysis
             _totalHeartRateForDuration = new double[_durations.Length];
             _totalSquaredHeartRateForDuration = new double[durations.Length];
             _minimumVarianceForDuration = new double[durations.Length];
+            _standardDeviationForDuration = new double[durations.Length];
             for (int i = 0; i < durations.Length; i++)
             {
                 _minimumVarianceForDuration[i] = double.MaxValue;
             }
             
-            _minimumVarianceOffsetForDuration = new double[durations.Length];
+            _minimumVarianceForDurationOffset = new double[durations.Length];
             _meanHeartRateForDuration = new double[durations.Length];
 
             int longestInterval = durations.Max();
@@ -249,8 +251,9 @@ namespace FitAnalysis
                     if (variance < _minimumVarianceForDuration[i])
                     {
                         _minimumVarianceForDuration[i] = variance;
-                        _minimumVarianceOffsetForDuration[i] = _count - _durations[i];
+                        _minimumVarianceForDurationOffset[i] = _count - _durations[i];
                         _meanHeartRateForDuration[i] = mean;
+                        _standardDeviationForDuration[i] = Math.Sqrt(variance);
                     }
                 }
             }
@@ -261,9 +264,9 @@ namespace FitAnalysis
             get { return _meanHeartRateForDuration; }
         }
 
-        public double[] VarianceForDuration
+        public double[] StandardDeviationForDuration
         {
-            get { return _minimumVarianceForDuration; }
+            get { return _standardDeviationForDuration; }
         }
 
         public double AverageHeartRate
@@ -274,6 +277,151 @@ namespace FitAnalysis
         public int[] Durations
         {
             get { return _durations; }
+        }
+    }
+
+    public class EfficiencyFactorCalculator
+    {
+        const int DURATION = 30;
+
+        // Fields from HeartRateVarianceCalculator
+        private CircularBuffer _heartRateBuffer;
+        private CircularBuffer _squaredHeartRateBuffer;
+        private int[] _durations;
+        private double _totalHeartRate;
+        private double[] _totalHeartRateForDuration;
+        private double[] _totalSquaredHeartRateForDuration;
+        private double[] _standardDeviationForDuration;
+        private double[] _meanHeartRateForDuration;
+        private int _count;
+
+        // Fields from NormalizedPowerCalculator
+        private CircularBuffer _average30SecondPowerBuffer;
+        private CircularBuffer _normalizedPowerBuffer;
+        private double[] _powerToFourthPowerTotalForDuration;
+        private double[] _normalizedPowerForDuration;
+        private double[] _efficiencyFactorForDuration;
+        private int[] _efficiencyFactorForDurationOffset;
+        private double _power30SecondTotal;
+
+        public EfficiencyFactorCalculator(int[] durations)
+        {
+            _durations = durations;
+            _totalHeartRateForDuration = new double[_durations.Length];
+            _totalSquaredHeartRateForDuration = new double[durations.Length];
+            _standardDeviationForDuration = new double[durations.Length];
+            for (int i = 0; i < durations.Length; i++)
+            {
+                _standardDeviationForDuration[i] = double.MaxValue;
+            }
+            
+            _meanHeartRateForDuration = new double[durations.Length];
+
+            int longestInterval = durations.Max();
+            _heartRateBuffer = new CircularBuffer(longestInterval + 1);
+            _squaredHeartRateBuffer = new CircularBuffer(longestInterval + 1);
+            _normalizedPowerBuffer = new CircularBuffer(longestInterval + 1);
+
+            _totalHeartRate = 0;
+
+            _average30SecondPowerBuffer = new CircularBuffer(DURATION + 1);
+            _powerToFourthPowerTotalForDuration = new double[durations.Length];
+            _normalizedPowerForDuration = new double[durations.Length];
+            _efficiencyFactorForDuration = new double[durations.Length];
+            _efficiencyFactorForDurationOffset = new int[durations.Length];
+
+            _power30SecondTotal = 0.0;
+        }
+
+        public void Add(double power, double heartRate)
+        {
+            double squaredHeartRate = heartRate * heartRate;
+            _totalHeartRate += heartRate;
+
+            // Compute 30s average power
+            _power30SecondTotal -= _average30SecondPowerBuffer.ReadNegativeOffset(DURATION - 1);
+            _power30SecondTotal += power;
+            _average30SecondPowerBuffer.Add(power);
+
+            _count++;
+
+            // Compute normalized power 
+            if (_count > DURATION)
+            {
+                double power30SecondAverageToFourthPower = Math.Pow(_power30SecondTotal / DURATION, 4);
+
+                for (int i = 0; i < _durations.Length; i++)
+                {
+                    _powerToFourthPowerTotalForDuration[i] -= _normalizedPowerBuffer.ReadNegativeOffset(_durations[i] - 1);
+                    _powerToFourthPowerTotalForDuration[i] += power30SecondAverageToFourthPower;
+                }
+
+                _normalizedPowerBuffer.Add(power30SecondAverageToFourthPower);
+            }
+
+            // Compute heart rate variance
+            for (int i = 0; i < _durations.Length; i++)
+            {
+                _totalHeartRateForDuration[i] -= _heartRateBuffer.ReadNegativeOffset(_durations[i] - 1);
+                _totalHeartRateForDuration[i] += heartRate;
+
+                _totalSquaredHeartRateForDuration[i] -= _squaredHeartRateBuffer.ReadNegativeOffset(_durations[i] - 1);
+                _totalSquaredHeartRateForDuration[i] += squaredHeartRate;
+
+                if (_count >= _durations[i])
+                {
+                    double mean = _totalHeartRateForDuration[i] / _durations[i];
+                    double variance = Math.Abs(_totalSquaredHeartRateForDuration[i] / _durations[i] - mean * mean);
+                    double standardDeviation = Math.Sqrt(variance);
+
+                    // If we have a new minimum variance, capture the normalized power for the current duration
+                    // In the future, we will have an additional clause that lets us specify a minimum standard deviation
+                    if (standardDeviation < _standardDeviationForDuration[i])
+                    {
+                        _meanHeartRateForDuration[i] = mean;
+                        _standardDeviationForDuration[i] = standardDeviation;
+
+                        _normalizedPowerForDuration[i] = Math.Pow(_powerToFourthPowerTotalForDuration[i] / _durations[i], 0.25);
+                        _efficiencyFactorForDuration[i] = _normalizedPowerForDuration[i] / mean;
+                        _efficiencyFactorForDurationOffset[i] = _count - _durations[i];
+                    }
+                }
+            }
+        }
+
+        public double[] MeanHeartRateForDuration
+        {
+            get { return _meanHeartRateForDuration; }
+        }
+
+        public double[] StandardDeviationForDuration
+        {
+            get { return _standardDeviationForDuration; }
+        }
+
+        public double AverageHeartRate
+        {
+            get { return _totalHeartRate / _count; }
+        }
+
+        public int[] Durations
+        {
+            get { return _durations; }
+        }
+
+        public double[] NormalizedPowerForDuration
+        {
+            get { return _normalizedPowerForDuration; }
+        }
+
+        public double[] EfficiencyFactorForDuration
+        {
+            get { return _efficiencyFactorForDuration; }
+        }
+
+        public int[] EfficiencyFactorForDurationOffset
+        {
+            get { return _efficiencyFactorForDurationOffset; }
         }
     }
 }

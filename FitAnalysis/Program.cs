@@ -34,8 +34,8 @@ namespace FitAnalysis
 
     class Program
     {
-        const string FIT_FILE_PATH = @"C:\Users\John\OneDrive\Garmin\2014-10-10-14-16-04.fit";
-        //const string FIT_FILE_PATH = @"C:\Users\John\OneDrive\Garmin\2014-12-25-12-27-18.fit";
+        //const string FIT_FILE_PATH = @"C:\Users\John\OneDrive\Garmin\2014-10-10-14-16-04.fit";
+        const string FIT_FILE_PATH = @"C:\Users\John\OneDrive\Garmin\2014-12-25-12-27-18.fit";
         const double FTP = 225;
 
         class LapSummary
@@ -57,31 +57,36 @@ namespace FitAnalysis
                     var powerCurveCalculator = new PowerCurveCalculator(new int[] {1, 5, 10, 30, 60, 120, 240, 300, 600, 900});
                     var normalizedPowerCurveCalculator = new NormalizedPowerCurveCalculator(new int[] {60, 120, 240, 300, 600, 900});
                     var heartRateVarianceCalculator = new HeartRateVarianceCalculator(new int[] { 600, 1200, 2400, 3600 });
+                    var efficiencyFactorCalculator = new EfficiencyFactorCalculator(new int[] { 600, 1200, 2400 });
 
                     var timer = new Stopwatch();
                     timer.Start();
 
                     foreach (var record in parser.GetDataRecords())
                     {
-                        double power, heartRate;
-
                         if (record.GlobalMessageNumber == GlobalMessageNumber.Lap)
                         {
-                            var x = 42;
-
                         }
                         else if (record.GlobalMessageNumber == GlobalMessageNumber.Record)
                         {
-                            if (record.TryGetField(FieldNumber.Power, out power))
+                            double power, heartRate;
+                            bool hasPower, hasHeartRate;
+
+                            if (hasPower = record.TryGetField(FieldNumber.Power, out power))
                             {
                                 powerCurveCalculator.Add(power);
                                 normalizedPowerCalculator.Add(power);
                                 normalizedPowerCurveCalculator.Add(power);
                             }
 
-                            if (record.TryGetField(FieldNumber.HeartRate, out heartRate))
+                            if (hasHeartRate = record.TryGetField(FieldNumber.HeartRate, out heartRate))
                             {
                                 heartRateVarianceCalculator.Add(heartRate);
+                            }
+
+                            if (hasPower && hasHeartRate)
+                            {
+                                efficiencyFactorCalculator.Add(power, heartRate);
                             }
                         }
                     }
@@ -112,8 +117,19 @@ namespace FitAnalysis
                         Console.WriteLine("Duration: {0}s, Average Heart Rate: {1:0}bpm +/- {2:0.0}",
                             heartRateVarianceCalculator.Durations[i],
                             heartRateVarianceCalculator.MeanHeartRateForDuration[i],
-                            Math.Sqrt(Math.Abs(heartRateVarianceCalculator.VarianceForDuration[i])));
-                        
+                            heartRateVarianceCalculator.StandardDeviationForDuration[i]);
+                    }
+                    Console.WriteLine("\n");
+
+                    Console.WriteLine("Efficiency Factor:\n");
+                    for (int i = 0; i < efficiencyFactorCalculator.Durations.Length; i++)
+                    {
+                        Console.WriteLine("Duration: {0}s, NP = {1:0}W, HR = {2:0.0}+/-{3:0.0}, EF = {4:0.000}",
+                            efficiencyFactorCalculator.Durations[i],
+                            efficiencyFactorCalculator.NormalizedPowerForDuration[i],
+                            efficiencyFactorCalculator.MeanHeartRateForDuration[i],
+                            efficiencyFactorCalculator.StandardDeviationForDuration[i],
+                            efficiencyFactorCalculator.EfficiencyFactorForDuration[i]);
                     }
                     Console.WriteLine("\n");
 
