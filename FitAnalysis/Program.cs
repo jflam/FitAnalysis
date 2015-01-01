@@ -17,6 +17,9 @@ namespace FitAnalysis
         [Option('f', "file", Required = false, HelpText = "File to process")]
         public string File { get; set; }
 
+        [Option("dump", Required = false, HelpText = "Dump heart rate data")]
+        public bool DumpHeartRateData { get; set; }
+
         [ParserState]
         public IParserState LastParserState { get; set; }
 
@@ -38,7 +41,7 @@ namespace FitAnalysis
     class Program
     {
         //const string FIT_FILE_PATH = @"C:\Users\John\OneDrive\Garmin\2014-10-10-14-16-04.fit";
-        const string FIT_FILE_PATH = @"C:\Users\John\OneDrive\Garmin\2014-12-25-12-27-18.fit";
+        const string FIT_FILE_PATH = @"C:\Users\John\OneDrive\Garmin\2014-12-30-14-41-39.fit";
         const double FTP = 225;
 
         class LapSummary
@@ -48,7 +51,10 @@ namespace FitAnalysis
 
         static void ComputeEfficiencyFactorReport(Options options)
         {
-            double standardDeviationThreshold = 0.7;
+            // Parameters
+            double standardDeviationThreshold = 4;
+            double meanHeartRateLimit = 154; // upper limit of Z2
+
             var files = Directory.GetFiles(options.Directory, "*.fit");
 
             var timer = new Stopwatch();
@@ -61,52 +67,62 @@ namespace FitAnalysis
                 using (var stream = File.OpenRead(file))
                 {
                     var parser = new FastParser(stream);
-                    var efficiencyFactorCalculator = new EfficiencyFactorCalculator(new int[] { 1200, 2400 });
+                    var efficiencyFactorCalculator = new EfficiencyFactorCalculator(new int[] { 1200 }, standardDeviationThreshold);
 
                     foreach (var record in parser.GetDataRecords())
                     {
                         if (record.GlobalMessageNumber == GlobalMessageNumber.Record)
                         {
                             double power, heartRate;
-                            bool hasPower = record.TryGetField(FieldNumber.Power, out power);
-                            bool hasHeartRate = record.TryGetField(FieldNumber.HeartRate, out heartRate);
+                            bool hasPower = record.TryGetField((byte)RecordFieldNumber.Power, out power);
+                            bool hasHeartRate = record.TryGetField((byte)RecordFieldNumber.HeartRate, out heartRate);
                             if (hasPower && hasHeartRate)
                             {
                                 efficiencyFactorCalculator.Add(power, heartRate);
+                            }
+                        }
+                        else if (record.GlobalMessageNumber == GlobalMessageNumber.Event)
+                        {
+                            byte eventField, eventTypeField;
+                            if (record.TryGetField((byte)EventFieldNumber.Event, out eventField))
+                            {
+                                if ((Event)eventField == Event.Timer)
+                                {
+                                    if (record.TryGetField((byte)EventFieldNumber.EventType, out eventTypeField))
+                                    {
+                                        EventType eventType = (EventType)eventTypeField;
+                                        if (eventType == EventType.Stop || eventType == EventType.StopAll)
+                                        {
+                                            // Reset on stop
+                                            efficiencyFactorCalculator.Reset();
+                                        }
+                                        else if (eventType == EventType.Start)
+                                        {
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
 
                     if (!efficiencyFactorCalculator.HasData)
                     {
-                        Console.WriteLine("{0} has no HR data", Path.GetFileNameWithoutExtension(file));
+                        //Console.WriteLine("{0} has no HR data", Path.GetFileNameWithoutExtension(file));
                     }
                     else
                     {
-                        double minimumStandardDeviation = double.MaxValue;
                         for (int i = 0; i < efficiencyFactorCalculator.Durations.Length; i++)
                         {
-                            if (efficiencyFactorCalculator.StandardDeviationForDuration[i] < minimumStandardDeviation)
+                            if (efficiencyFactorCalculator.StandardDeviationForDuration[i] > 0 &&
+                                efficiencyFactorCalculator.MeanHeartRateForDuration[i] < meanHeartRateLimit)
                             {
-                                minimumStandardDeviation = efficiencyFactorCalculator.StandardDeviationForDuration[i];
-                            }
-
-                        }
-
-                        if (minimumStandardDeviation < standardDeviationThreshold)
-                        {
-                            for (int i = 0; i < efficiencyFactorCalculator.Durations.Length; i++)
-                            {
-                                if (efficiencyFactorCalculator.StandardDeviationForDuration[i] < standardDeviationThreshold)
-                                {
-                                    sb.AppendLine(String.Format("{0}, Duration {1}s, EF = {2:0.000}, NP = {3:0}, Avg HR = {4:0.0} +/- {5:0.0}",
-                                        Path.GetFileNameWithoutExtension(file),
-                                        efficiencyFactorCalculator.Durations[i],
-                                        efficiencyFactorCalculator.EfficiencyFactorForDuration[i],
-                                        efficiencyFactorCalculator.NormalizedPowerForDuration[i],
-                                        efficiencyFactorCalculator.MeanHeartRateForDuration[i],
-                                        efficiencyFactorCalculator.StandardDeviationForDuration[i]));
-                                }
+                                sb.AppendLine(String.Format("{0}, Duration {1}s, EF = {2:0.000}, NP = {3:0}, Avg HR = {4:0.0} +/- {5:0.0}",
+                                    Path.GetFileNameWithoutExtension(file),
+                                    efficiencyFactorCalculator.Durations[i],
+                                    efficiencyFactorCalculator.EfficiencyFactorForDuration[i],
+                                    efficiencyFactorCalculator.NormalizedPowerForDuration[i],
+                                    efficiencyFactorCalculator.MeanHeartRateForDuration[i],
+                                    efficiencyFactorCalculator.StandardDeviationForDuration[i]));
                             }
                         }
                     }
@@ -124,12 +140,13 @@ namespace FitAnalysis
             {
                 var parser = new FastParser(stream);
                 var laps = new List<LapSummary>();
+                double minimumHeartRateStandardDeviation = 4;
 
                 var normalizedPowerCalculator = new PowerStatisticsCalculator(FTP);
                 var powerCurveCalculator = new PowerCurveCalculator(new int[] { 1, 5, 10, 30, 60, 120, 240, 300, 600, 900 });
                 var normalizedPowerCurveCalculator = new NormalizedPowerCurveCalculator(new int[] { 60, 120, 240, 300, 600, 900 });
                 var heartRateVarianceCalculator = new HeartRateVarianceCalculator(new int[] { 600, 1200, 2400, 3600 });
-                var efficiencyFactorCalculator = new EfficiencyFactorCalculator(new int[] { 600, 1200, 2400 });
+                var efficiencyFactorCalculator = new EfficiencyFactorCalculator(new int[] { 600, 1200, 2400 }, minimumHeartRateStandardDeviation);
 
                 var timer = new Stopwatch();
                 timer.Start();
@@ -139,19 +156,47 @@ namespace FitAnalysis
                     if (record.GlobalMessageNumber == GlobalMessageNumber.Lap)
                     {
                     }
+                    else if (record.GlobalMessageNumber == GlobalMessageNumber.Event)
+                    {
+                        byte eventField, eventTypeField;
+                        if (record.TryGetField((byte)EventFieldNumber.Event, out eventField))
+                        {
+                            if ((Event)eventField == Event.Timer)
+                            {
+                                if (record.TryGetField((byte)EventFieldNumber.EventType, out eventTypeField))
+                                {
+                                    EventType eventType = (EventType)eventTypeField;
+                                    if (eventType == EventType.Stop || eventType == EventType.StopAll)
+                                    {
+                                        // Reset on stop
+                                        normalizedPowerCalculator.Reset();
+                                        powerCurveCalculator.Reset();
+                                        normalizedPowerCurveCalculator.Reset();
+                                        heartRateVarianceCalculator.Reset();
+                                        efficiencyFactorCalculator.Reset();
+                                    }
+                                    else if (eventType == EventType.Start)
+                                    {
+                                        // What do we do on a start event?
+                                        var y = 43;
+                                    }
+                                }
+                            }
+                        }
+                    }
                     else if (record.GlobalMessageNumber == GlobalMessageNumber.Record)
                     {
                         double power, heartRate;
                         bool hasPower, hasHeartRate;
 
-                        if (hasPower = record.TryGetField(FieldNumber.Power, out power))
+                        if (hasPower = record.TryGetField((byte)RecordFieldNumber.Power, out power))
                         {
                             powerCurveCalculator.Add(power);
                             normalizedPowerCalculator.Add(power);
                             normalizedPowerCurveCalculator.Add(power);
                         }
 
-                        if (hasHeartRate = record.TryGetField(FieldNumber.HeartRate, out heartRate))
+                        if (hasHeartRate = record.TryGetField((byte)RecordFieldNumber.HeartRate, out heartRate))
                         {
                             heartRateVarianceCalculator.Add(heartRate);
                         }
@@ -212,6 +257,21 @@ namespace FitAnalysis
                 Console.WriteLine("Intensity factor: {0:0.000}", normalizedPowerCalculator.IntensityFactor);
                 Console.WriteLine("Training Stress Score: {0:0}", normalizedPowerCalculator.TrainingStressScore);
                 Console.WriteLine("Processing duration: {0}ms", timer.ElapsedMilliseconds);
+
+                // Optional part to dump captured heart rate from efficiency calculator
+                if (options.DumpHeartRateData)
+                {
+                    for (int i = 0; i < efficiencyFactorCalculator.StandardDeviationForDuration.Length; i++)
+                    {
+                        if (efficiencyFactorCalculator.StandardDeviationForDuration[i] > 0)
+                        {
+                            for (int j = 0; j < efficiencyFactorCalculator.CapturedHeartRateTraces[i].Length; j++)
+                            {
+                                Console.WriteLine(efficiencyFactorCalculator.CapturedHeartRateTraces[i][j]);
+                            }
+                        }
+                    }
+                }
             }
         }
 
