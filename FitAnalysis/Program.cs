@@ -81,27 +81,9 @@ namespace FitAnalysis
                                 efficiencyFactorCalculator.Add(power, heartRate);
                             }
                         }
-                        else if (record.GlobalMessageNumber == GlobalMessageNumber.Event)
+                        else if (record.IsStopTimerEvent())
                         {
-                            byte eventField, eventTypeField;
-                            if (record.TryGetField((byte)EventFieldNumber.Event, out eventField))
-                            {
-                                if ((Event)eventField == Event.Timer)
-                                {
-                                    if (record.TryGetField((byte)EventFieldNumber.EventType, out eventTypeField))
-                                    {
-                                        EventType eventType = (EventType)eventTypeField;
-                                        if (eventType == EventType.Stop || eventType == EventType.StopAll)
-                                        {
-                                            // Reset on stop
-                                            efficiencyFactorCalculator.Reset();
-                                        }
-                                        else if (eventType == EventType.Start)
-                                        {
-                                        }
-                                    }
-                                }
-                            }
+                            efficiencyFactorCalculator.Reset();
                         }
                     }
 
@@ -153,38 +135,7 @@ namespace FitAnalysis
 
                 foreach (var record in parser.GetDataRecords())
                 {
-                    if (record.GlobalMessageNumber == GlobalMessageNumber.Lap)
-                    {
-                    }
-                    else if (record.GlobalMessageNumber == GlobalMessageNumber.Event)
-                    {
-                        byte eventField, eventTypeField;
-                        if (record.TryGetField((byte)EventFieldNumber.Event, out eventField))
-                        {
-                            if ((Event)eventField == Event.Timer)
-                            {
-                                if (record.TryGetField((byte)EventFieldNumber.EventType, out eventTypeField))
-                                {
-                                    EventType eventType = (EventType)eventTypeField;
-                                    if (eventType == EventType.Stop || eventType == EventType.StopAll)
-                                    {
-                                        // Reset on stop
-                                        normalizedPowerCalculator.Reset();
-                                        powerCurveCalculator.Reset();
-                                        normalizedPowerCurveCalculator.Reset();
-                                        heartRateVarianceCalculator.Reset();
-                                        efficiencyFactorCalculator.Reset();
-                                    }
-                                    else if (eventType == EventType.Start)
-                                    {
-                                        // What do we do on a start event?
-                                        var y = 43;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    else if (record.GlobalMessageNumber == GlobalMessageNumber.Record)
+                    if (record.GlobalMessageNumber == GlobalMessageNumber.Record)
                     {
                         double power, heartRate;
                         bool hasPower, hasHeartRate;
@@ -205,6 +156,17 @@ namespace FitAnalysis
                         {
                             efficiencyFactorCalculator.Add(power, heartRate);
                         }
+                    }
+                    else if (record.IsStopTimerEvent())
+                    {
+                        normalizedPowerCalculator.Reset();
+                        powerCurveCalculator.Reset();
+                        normalizedPowerCurveCalculator.Reset();
+                        heartRateVarianceCalculator.Reset();
+                        efficiencyFactorCalculator.Reset();
+                    }
+                    else if (record.GlobalMessageNumber == GlobalMessageNumber.Lap)
+                    {
                     }
                 }
 

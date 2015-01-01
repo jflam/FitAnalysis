@@ -1,4 +1,5 @@
 ﻿using System;
+
 namespace FitAnalysis
 {
     public class CircularBuffer

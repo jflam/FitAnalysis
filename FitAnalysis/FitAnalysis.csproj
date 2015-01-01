@@ -50,6 +50,7 @@
   <ItemGroup>
     <Compile Include="Algorithms.cs" />
     <Compile Include="DataStructures.cs" />
+    <Compile Include="ParserExtensionMethods.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
