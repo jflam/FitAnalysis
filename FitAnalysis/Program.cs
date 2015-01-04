@@ -52,8 +52,8 @@ namespace FitAnalysis
         static void ComputeEfficiencyFactorReport(Options options)
         {
             // Parameters
-            double standardDeviationThreshold = 4;
-            double meanHeartRateLimit = 154; // upper limit of Z2
+            double standardDeviationThreshold = 5;
+            double meanHeartRateLimit = 174; // upper limit of Z2
 
             var files = Directory.GetFiles(options.Directory, "*.fit");
 
@@ -74,8 +74,8 @@ namespace FitAnalysis
                         if (record.GlobalMessageNumber == GlobalMessageNumber.Record)
                         {
                             double power, heartRate;
-                            bool hasPower = record.TryGetField((byte)RecordFieldNumber.Power, out power);
-                            bool hasHeartRate = record.TryGetField((byte)RecordFieldNumber.HeartRate, out heartRate);
+                            bool hasPower = record.TryGetField(RecordDef.Power, out power);
+                            bool hasHeartRate = record.TryGetField(RecordDef.HeartRate, out heartRate);
                             if (hasPower && hasHeartRate)
                             {
                                 efficiencyFactorCalculator.Add(power, heartRate);
@@ -140,14 +140,14 @@ namespace FitAnalysis
                         double power, heartRate;
                         bool hasPower, hasHeartRate;
 
-                        if (hasPower = record.TryGetField((byte)RecordFieldNumber.Power, out power))
+                        if (hasPower = record.TryGetField(RecordDef.Power, out power))
                         {
                             powerCurveCalculator.Add(power);
                             normalizedPowerCalculator.Add(power);
                             normalizedPowerCurveCalculator.Add(power);
                         }
 
-                        if (hasHeartRate = record.TryGetField((byte)RecordFieldNumber.HeartRate, out heartRate))
+                        if (hasHeartRate = record.TryGetField(RecordDef.HeartRate, out heartRate))
                         {
                             heartRateVarianceCalculator.Add(heartRate);
                         }
@@ -167,6 +167,8 @@ namespace FitAnalysis
                     }
                     else if (record.GlobalMessageNumber == GlobalMessageNumber.Lap)
                     {
+                        // Dump the IDs of the fields in the field definition message
+                        var x = 42;
                     }
                 }
 

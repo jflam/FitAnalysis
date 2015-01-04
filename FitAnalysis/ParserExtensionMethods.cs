@@ -10,11 +10,11 @@ namespace FitAnalysis
             if (record.GlobalMessageNumber == GlobalMessageNumber.Event)
             {
                 byte eventField, eventTypeField;
-                if (record.TryGetField((byte)EventFieldNumber.Event, out eventField))
+                if (record.TryGetField(EventDef.Event, out eventField))
                 {
                     if ((Event)eventField == Event.Timer)
                     {
-                        if (record.TryGetField((byte)EventFieldNumber.EventType, out eventTypeField))
+                        if (record.TryGetField(EventDef.EventType, out eventTypeField))
                         {
                             EventType eventType = (EventType)eventTypeField;
                             if (eventType == EventType.Stop || eventType == EventType.StopAll)
