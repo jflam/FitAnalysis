@@ -7,7 +7,7 @@ namespace FitAnalysis
     {
         public static bool IsStopTimerEvent(this DataRecord record)
         {
-            if (record.GlobalMessageNumber == GlobalMessageNumber.Event)
+            if (record.GlobalMessageNumber == GlobalMessageDefs.Event)
             {
                 byte eventField, eventTypeField;
                 if (record.TryGetField(EventDef.Event, out eventField))

@@ -40,7 +40,6 @@ namespace FitAnalysis
 
     class Program
     {
-        //const string FIT_FILE_PATH = @"C:\Users\John\OneDrive\Garmin\2014-10-10-14-16-04.fit";
         const string FIT_FILE_PATH = @"C:\Users\John\OneDrive\Garmin\2014-12-30-14-41-39.fit";
         const double FTP = 225;
 
@@ -71,7 +70,7 @@ namespace FitAnalysis
 
                     foreach (var record in parser.GetDataRecords())
                     {
-                        if (record.GlobalMessageNumber == GlobalMessageNumber.Record)
+                        if (record.GlobalMessageNumber == GlobalMessageDefs.Record)
                         {
                             double power, heartRate;
                             bool hasPower = record.TryGetField(RecordDef.Power, out power);
@@ -135,7 +134,12 @@ namespace FitAnalysis
 
                 foreach (var record in parser.GetDataRecords())
                 {
-                    if (record.GlobalMessageNumber == GlobalMessageNumber.Record)
+                    if (record.GlobalMessageNumber != GlobalMessageDefs.Record)
+                    {
+                        // Dump the name of the record
+                        Console.WriteLine(record.GlobalMessageNumber.ToString());
+                    }
+                    if (record.GlobalMessageNumber == GlobalMessageDefs.Record)
                     {
                         double power, heartRate;
                         bool hasPower, hasHeartRate;
@@ -165,10 +169,8 @@ namespace FitAnalysis
                         heartRateVarianceCalculator.Reset();
                         efficiencyFactorCalculator.Reset();
                     }
-                    else if (record.GlobalMessageNumber == GlobalMessageNumber.Lap)
+                    else if (record.GlobalMessageNumber == GlobalMessageDefs.Lap)
                     {
-                        // Dump the IDs of the fields in the field definition message
-                        var x = 42;
                     }
                 }
 
