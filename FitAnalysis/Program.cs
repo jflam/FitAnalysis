@@ -52,7 +52,7 @@ namespace FitAnalysis
         {
             // Parameters
             double standardDeviationThreshold = 5;
-            double meanHeartRateLimit = 174; // upper limit of Z2
+            double meanHeartRateLimit = 154; // upper limit of Z2
 
             var files = Directory.GetFiles(options.Directory, "*.fit");
 
@@ -70,7 +70,7 @@ namespace FitAnalysis
 
                     foreach (var record in parser.GetDataRecords())
                     {
-                        if (record.GlobalMessageNumber == GlobalMessageDefs.Record)
+                        if (record.GlobalMessageNumber == GlobalMessageDecls.Record)
                         {
                             double power, heartRate;
                             bool hasPower = record.TryGetField(RecordDef.Power, out power);
@@ -134,12 +134,12 @@ namespace FitAnalysis
 
                 foreach (var record in parser.GetDataRecords())
                 {
-                    if (record.GlobalMessageNumber != GlobalMessageDefs.Record)
+                    if (record.GlobalMessageNumber != GlobalMessageDecls.Record)
                     {
                         // Dump the name of the record
                         Console.WriteLine(record.GlobalMessageNumber.ToString());
                     }
-                    if (record.GlobalMessageNumber == GlobalMessageDefs.Record)
+                    if (record.GlobalMessageNumber == GlobalMessageDecls.Record)
                     {
                         double power, heartRate;
                         bool hasPower, hasHeartRate;
@@ -169,7 +169,7 @@ namespace FitAnalysis
                         heartRateVarianceCalculator.Reset();
                         efficiencyFactorCalculator.Reset();
                     }
-                    else if (record.GlobalMessageNumber == GlobalMessageDefs.Lap)
+                    else if (record.GlobalMessageNumber == GlobalMessageDecls.Lap)
                     {
                     }
                 }

@@ -35,9 +35,9 @@
     <Reference Include="CommandLine">
       <HintPath>packages\CommandLineParser.1.9.71\lib\net45\CommandLine.dll</HintPath>
     </Reference>
-    <Reference Include="FastFitParser.Core, Version=0.2.0.0, Culture=neutral, processorArchitecture=MSIL">
+    <Reference Include="FastFitParser.Core, Version=0.3.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>packages\FastFitParser.Core.0.2.1.0\lib\portable-net45+sl50+win+wpa81+wp80+MonoAndroid10+MonoTouch10\FastFitParser.Core.dll</HintPath>
+      <HintPath>packages\FastFitParser.Core.0.3.0.0\lib\portable-net45+sl50+win+WindowsPhoneApp81+wp80\FastFitParser.Core.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
