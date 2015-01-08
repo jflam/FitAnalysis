@@ -55,6 +55,9 @@ namespace FitAnalysis
             timer.Start();
 
             var sb = new StringBuilder();
+            Dictionary<int, Dictionary<int, double>> tssHistogram = new Dictionary<int, Dictionary<int, double>>();
+            var calendar = System.Globalization.DateTimeFormatInfo.CurrentInfo.Calendar;
+
             foreach (var file in files)
             {
                 using (var stream = File.OpenRead(file))
@@ -85,7 +88,22 @@ namespace FitAnalysis
 
                     if (retrievedTimeStampOfFirstRecord)
                     {
-                        sb.Append(String.Format("Date: {0} TSS: {1:0}\n", timeStampOfFirstRecord.ToLocalTime(), powerCalculator.TrainingStressScore));
+                        int year = timeStampOfFirstRecord.Year;
+                        int week = calendar.GetWeekOfYear(timeStampOfFirstRecord, System.Globalization.CalendarWeekRule.FirstDay, DayOfWeek.Monday);
+
+                        if (!tssHistogram.ContainsKey(year))
+                        {
+                            tssHistogram[year] = new Dictionary<int, double>();
+                        }
+
+                        if (tssHistogram[year].ContainsKey(week))
+                        {
+                            tssHistogram[year][week] += powerCalculator.TrainingStressScore;
+                        }
+                        else
+                        {
+                            tssHistogram[year][week] = powerCalculator.TrainingStressScore;
+                        }
                     }
                     else
                     {
@@ -94,6 +112,15 @@ namespace FitAnalysis
                 }
             }
 
+            // Generate Report
+            foreach (int year in tssHistogram.Keys)
+            {
+                sb.Append(String.Format("\nYear {0}\n", year));
+                foreach (int week in tssHistogram[year].Keys)
+                {
+                    sb.Append(String.Format("  Week {0} TSS = {1:0}\n", week, tssHistogram[year][week]));
+                }
+            }
             timer.Stop();
             Console.WriteLine(sb);
             Console.WriteLine("Total compute time: {0}ms", timer.ElapsedMilliseconds);
