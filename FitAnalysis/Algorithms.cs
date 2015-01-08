@@ -10,6 +10,7 @@ namespace FitAnalysis
         private CircularBuffer _buffer;
         private double _power30SecondTotal;
         private double _power30SecondAverageToFourthPowerTotal;
+        private double _totalPower;
         private int _totalCount;
         private double _ftp;
 
@@ -21,6 +22,7 @@ namespace FitAnalysis
 
         public void Add(double power)
         {
+            _totalPower += power;
             _power30SecondTotal -= _buffer.ReadNegativeOffset(DURATION - 1);
             _power30SecondTotal += power;
             _buffer.Add(power);
@@ -39,9 +41,19 @@ namespace FitAnalysis
             // Reset for this algorithm is a no-op, as it's intended to capture aggregate statistics
         }
 
+        public double AveragePower
+        {
+            get { return _totalPower / _totalCount; }
+        }
+
         public double NormalizedPower
         {
             get { return Math.Pow(_power30SecondAverageToFourthPowerTotal / ((double)(_totalCount - DURATION)), 0.25); }
+        }
+
+        public double VariabilityIndex
+        {
+            get { return NormalizedPower / AveragePower; }
         }
 
         public double IntensityFactor

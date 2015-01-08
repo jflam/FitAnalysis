@@ -51,8 +51,8 @@ namespace FitAnalysis
         static void ComputeEfficiencyFactorReport(Options options)
         {
             // Parameters
-            double standardDeviationThreshold = 5;
-            double meanHeartRateLimit = 154; // upper limit of Z2
+            double standardDeviationThreshold = 7;
+            double meanHeartRateLimit = 142; // upper limit of Z2
 
             var files = Directory.GetFiles(options.Directory, "*.fit");
 
@@ -66,7 +66,7 @@ namespace FitAnalysis
                 using (var stream = File.OpenRead(file))
                 {
                     var parser = new FastParser(stream);
-                    var efficiencyFactorCalculator = new EfficiencyFactorCalculator(new int[] { 1200 }, standardDeviationThreshold);
+                    var efficiencyFactorCalculator = new EfficiencyFactorCalculator(new int[] { 600 }, standardDeviationThreshold);
 
                     foreach (var record in parser.GetDataRecords())
                     {
