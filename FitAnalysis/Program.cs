@@ -48,6 +48,57 @@ namespace FitAnalysis
 
         }
 
+        static void ComputeTrainingStressReport(Options options)
+        {
+            var files = Directory.GetFiles(options.Directory, "*.fit");
+            var timer = new Stopwatch();
+            timer.Start();
+
+            var sb = new StringBuilder();
+            foreach (var file in files)
+            {
+                using (var stream = File.OpenRead(file))
+                {
+                    var parser = new FastParser(stream);
+                    var powerCalculator = new PowerStatisticsCalculator(FTP);
+
+                    bool isFirstRecord = true, retrievedTimeStampOfFirstRecord = false;
+                    DateTime timeStampOfFirstRecord = DateTime.MinValue;
+
+                    foreach (var message in parser.GetMessages())
+                    {
+                        if (message.GlobalMessageNumber == GlobalMessageDecls.Record)
+                        {
+                            if (isFirstRecord)
+                            {
+                                retrievedTimeStampOfFirstRecord = message.TryGetField(RecordDef.TimeStamp, out timeStampOfFirstRecord);
+                                isFirstRecord = false;
+                            }
+
+                            double power;
+                            if (message.TryGetField(RecordDef.Power, out power))
+                            {
+                                powerCalculator.Add(power);
+                            }
+                        }
+                    }
+
+                    if (retrievedTimeStampOfFirstRecord)
+                    {
+                        sb.Append(String.Format("Date: {0} TSS: {1:0}\n", timeStampOfFirstRecord.ToLocalTime(), powerCalculator.TrainingStressScore));
+                    }
+                    else
+                    {
+                        sb.Append(String.Format("Unknown date for {0} TSS: {1:0}\n", file, powerCalculator.TrainingStressScore));
+                    }
+                }
+            }
+
+            timer.Stop();
+            Console.WriteLine(sb);
+            Console.WriteLine("Total compute time: {0}ms", timer.ElapsedMilliseconds);
+        }
+
         static void ComputeEfficiencyFactorReport(Options options)
         {
             // Parameters
@@ -68,7 +119,7 @@ namespace FitAnalysis
                     var parser = new FastParser(stream);
                     var efficiencyFactorCalculator = new EfficiencyFactorCalculator(new int[] { 600 }, standardDeviationThreshold);
 
-                    foreach (var record in parser.GetDataRecords())
+                    foreach (var record in parser.GetMessages())
                     {
                         if (record.GlobalMessageNumber == GlobalMessageDecls.Record)
                         {
@@ -132,7 +183,7 @@ namespace FitAnalysis
                 var timer = new Stopwatch();
                 timer.Start();
 
-                foreach (var record in parser.GetDataRecords())
+                foreach (var record in parser.GetMessages())
                 {
                     if (record.GlobalMessageNumber != GlobalMessageDecls.Record)
                     {
@@ -221,6 +272,7 @@ namespace FitAnalysis
                 Console.WriteLine("Average power: {0:0}W", powerCurveCalculator.AveragePower);
                 Console.WriteLine("Normalized power: {0:0}W", normalizedPowerCalculator.NormalizedPower);
                 Console.WriteLine("Intensity factor: {0:0.000}", normalizedPowerCalculator.IntensityFactor);
+                Console.WriteLine("Variability index: {0:0.000}", normalizedPowerCalculator.VariabilityIndex);
                 Console.WriteLine("Training Stress Score: {0:0}", normalizedPowerCalculator.TrainingStressScore);
                 Console.WriteLine("Processing duration: {0}ms", timer.ElapsedMilliseconds);
 
@@ -252,7 +304,8 @@ namespace FitAnalysis
                 }
                 else
                 {
-                    ComputeEfficiencyFactorReport(options);
+                    ComputeTrainingStressReport(options);
+                    //ComputeEfficiencyFactorReport(options);
                 }
             }
         }

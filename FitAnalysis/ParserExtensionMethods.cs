@@ -5,7 +5,7 @@ namespace FitAnalysis
 {
     public static class ParserExtensionMethods
     {
-        public static bool IsStopTimerEvent(this DataRecord record)
+        public static bool IsStopTimerEvent(this Message record)
         {
             if (record.GlobalMessageNumber == GlobalMessageDecls.Event)
             {
